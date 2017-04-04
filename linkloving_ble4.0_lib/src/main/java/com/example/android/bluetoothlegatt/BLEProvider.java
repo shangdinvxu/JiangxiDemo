@@ -1260,6 +1260,23 @@ public  class BLEProvider
 	  OwnLog.i(TAG, "..................INDEX_SEND_DATA_CARD Thread........................"+new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()));
 	   runIndexProess(context , INDEX_SEND_DATA_CARD , data);
    }
+
+	/***
+	 * 发送apud指令
+	 * @param data
+	 * @return
+	 */
+	public byte[] sendApdu(byte[] data){
+	   	byte[] dataReturn = null ;
+	   try {
+		dataReturn =  mLepaoProtocalImpl.senddata(data);
+	   } catch (BLException e) {
+		   e.printStackTrace();
+	   } catch (LPException e) {
+		   e.printStackTrace();
+	   }
+	   return dataReturn ;
+   }
    
    //flash
    public void flashhead(Context context,byte[] data)

@@ -1,71 +1,142 @@
 package jiangxi.xx;
 
 
-import jiangxi.zchr.rd.tsmcontro.TsmContro;
+import android.bluetooth.BluetoothDevice;
+import android.content.Context;
+
+import com.example.android.bluetoothlegatt.BLEHandler;
+import com.example.android.bluetoothlegatt.BLEListHandler;
+import com.example.android.bluetoothlegatt.BLEListProvider;
+import com.example.android.bluetoothlegatt.BLEProvider;
+import com.example.android.bluetoothlegatt.proltrol.dto.LPDeviceInfo;
+import com.example.android.bluetoothlegatt.proltrol.dto.LPSportData;
+
+import java.util.List;
+
 import jiangxi.zchr.rd.tsmcontro.util.WristStrapData;
-import jiangxi.zchr.rd.tsmcontro.util.WristStrapProcData;
 
 
 public class WristStrap {
+    private Context context;
+    public BLEProvider bleProvider;
+    public BLEListProvider bleListProvider;
+    public Listener listener ;
 
-	public WristStrap(WristStrapProcData i_objWristStrapProcData) {
+    public WristStrap(Context context,Listener listener) {
+        this.context = context;
+        this.listener = listener;
+        initBleProvider(context);
+        initBleListProvider(context);
+    }
+
+    private void initBleListProvider(Context context) {
+        BLEListHandler handler = new BLEListHandler(context) {
+            @Override
+            protected void handleData(BluetoothDevice device) {
+                listener.scanDevice(device);
+            }
+        };
+        bleListProvider = new BLEListProvider(context, handler);
+    }
 
 
+    private void initBleProvider(Context context) {
+        bleProvider = new BLEProvider(context) {
+            @Override
+            protected void saveSportSync2DB(List<LPSportData> originalSportDatas) {
+                super.saveSportSync2DB(originalSportDatas);
+                listener.saveSportData(originalSportDatas);
 
-	}
+            }
+        };
 
-	//是否正在扫描
-	public boolean isScanning() {
-		return true;
-	}
+        bleProvider.setProviderHandler(new BLEHandler(context) {
+            @Override
+            protected BLEProvider getProvider() {
+                return bleProvider;
+            }
 
-	//扫描设备
-	public int scanfDevice() {
+            @Override
+            protected void handleConnectSuccessMsg() {
+                super.handleConnectSuccessMsg();
+                listener.connectSuccess();
+            }
 
-		return TsmContro.TSM_CONTRO_SUCCESS;
-	}
+            @Override
+            protected void handleConnectLostMsg() {
+                super.handleConnectLostMsg();
+                listener.connectLost();
+            }
 
-	//停止扫描
-	public int stopScanfDevice() {
+            @Override
+            protected void notifyForOpenSmc(Object obj) {
+                super.notifyForOpenSmc(obj);
+                listener.powerOnResult((boolean)obj);
+            }
 
-		return TsmContro.TSM_CONTRO_SUCCESS;
-	}
+            @Override
+            protected void notifyFor0x13ExecSucess_D(LPDeviceInfo latestDeviceInfo) {
+                super.notifyFor0x13ExecSucess_D(latestDeviceInfo);
+                listener.getDeviceInfoNew(latestDeviceInfo);
+            }
+        });
+    }
 
-	//连接设备
-	public int connectDevice(WristStrapData i_objWristStrap) {
+    //获取设备信息
+    public void getAllDeviceInfoNew(int userId)
+    {
+        LPDeviceInfo lpDeviceInfo = new LPDeviceInfo();
+        lpDeviceInfo.userId = userId ;
+        bleProvider.getAllDeviceInfoNew(context,lpDeviceInfo);
+    }
 
-		return TsmContro.TSM_CONTRO_SUCCESS;
-	}
+    //获取运动数据
+    public void getSportDataNew()
+    {
+        bleProvider.getSportDataNew(context);
+    }
 
-	//断开连接设备
-	public int disconnectDevice() {
+    //扫描设备
+    public void scanfDevice() {
+        bleListProvider.scanDeviceList();
+    }
 
-		return TsmContro.TSM_CONTRO_SUCCESS;
-	}
 
-	//是否已连接设备
-	public int isConnectDevice() {
+    //停止扫描
+    public void stopScanfDevice() {
+        bleListProvider.stopScan();
+    }
 
-		return TsmContro.TSM_CONTRO_SUCCESS;
-	}
+    //连接设备
+    public void connectDevice(WristStrapData i_objWristStrap) {
+        bleProvider.connect_mac(i_objWristStrap.getWristStrapId());
+    }
 
-	//Apdu
-	public int powerOn() {
+    //断开连接设备
+    public void disconnectDevice() {
+        bleProvider.disConnect();
+    }
 
-		return TsmContro.TSM_CONTRO_SUCCESS;
-	}
+    //是否已连接设备
+    public boolean isConnectDevice() {
+        return bleProvider.isConnectedAndDiscovered();
+    }
 
-	//上电
-	public byte[] apduCommunication(byte[] i_byteSend, int i_iSendOffset, int i_iSendLen) {
+    //上电
+    public void powerOn() {
+        bleProvider.openSmartCard(context);
+    }
 
-		byte[] byteRsp = new byte[255];
+    //Apdu
+    public byte[] apduCommunication(byte[] i_byteSend) {
+        byte[] bytes = bleProvider.sendApdu(i_byteSend);
+        return bytes;
+    }
 
-		return byteRsp;
-	}
+    //下电
+    public void powerOff() {
+        bleProvider.closeSmartCard(context);
+    }
 
-	//下电
-	public int powerOff() {
 
-		return TsmContro.TSM_CONTRO_SUCCESS;
-	}
 }
